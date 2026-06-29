@@ -11,8 +11,11 @@ RUN sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmwar
     && rm -rf /var/lib/apt/lists/*
 
 # Build strf from source (the authoritative tool; do not reimplement).
-RUN git clone --depth 1 https://github.com/cbassa/strf.git /opt/strf \
-    && cd /opt/strf && make
+# Apply a minimal patch adding a headless `-I` identify flag (uses rffit's OWN
+# identify_satellite_from_doppler; no estimation is reimplemented).
+RUN git clone --depth 1 https://github.com/cbassa/strf.git /opt/strf
+COPY patch_rffit.py /tmp/patch_rffit.py
+RUN python3 /tmp/patch_rffit.py /opt/strf/rffit.c && cd /opt/strf && make
 
 ENV ST_DATADIR=/opt/strf
 ENV ST_TLEDIR=/m0/tle
