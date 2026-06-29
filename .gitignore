@@ -222,3 +222,7 @@ __marimo__/
 .pytest_cache/
 _eval/
 _dataset_build/
+
+# Internal-only: kept locally, never published to the remote (purged from history)
+docs/
+tests/
