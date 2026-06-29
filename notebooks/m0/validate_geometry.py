@@ -29,6 +29,10 @@ print(f'start={start_dt.isoformat()}  reltime span={relt[-1]-relt[0]:.1f}s')
 
 # --- extract measured track: peak frequency bin per time row, dB-normalised per bin ---
 dB = data.astype(np.float32) * scale[None, :] + offset[None, :]
+# FIX 1 (structured noise): background subtraction. A fixed-frequency interference
+# line is constant in time -> subtract each bin's time-median to remove it; the
+# Doppler-sweeping satellite is NOT constant in any bin, so it survives.
+dB = dB - np.median(dB, axis=0, keepdims=True)
 peak = np.argmax(dB, axis=1)
 peakp = dB[np.arange(T), peak]
 base = np.median(dB, axis=1)
