@@ -18,7 +18,7 @@ from pathlib import Path
 
 from ..id.dat import build_dat, site_line, write_catalog
 from ..id.identify import IdentifyResult, run_rffit_identify
-from ..id.nametag import NameTag, assess, resolve_messages
+from ..id.nametag import NameTag, assess, format_name_tag, resolve_messages
 from ..shared.api import SatnogsClient
 from ..shared.geometry import intdes_from_tle1, tle_epoch
 from ..shared.waterfall import load_waterfall
@@ -64,6 +64,12 @@ class ForwardID:
         if self.ambiguous and self.epoch_gap_days is not None and self.epoch_gap_days > 60:
             lines.append(f"  note: candidate elements sit ~{self.epoch_gap_days:.0f} d from the "
                          "observation epoch -- likely too stale; current TLEs suit recent passes.")
+        if self.name_tag is not None:
+            from ..data.build import CLUSTERS
+            names = next((c["truth"] for c in CLUSTERS.values() if self.best in c["truth"]), {})
+            badge = format_name_tag(self.name_tag, names)
+            if badge:
+                lines.append("  " + badge)
         return "\n".join(lines)
 
 

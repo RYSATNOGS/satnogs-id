@@ -3,6 +3,7 @@ its Doppler -- read-only, no account needed. A thin shell over forward.identify_
 gradio import is lazy so the formatting helper stays unit-testable without the UI dependency."""
 from __future__ import annotations
 
+from ..id.nametag import format_name_tag
 from .forward import ForwardID, identify_observation
 
 INTRO = """# satnogs-id — Identify
@@ -30,6 +31,11 @@ def format_result(obs_id: int, intdes: str | None, out: ForwardID) -> tuple[str,
             md.append(f"- candidate elements are ~{out.epoch_gap_days:.0f} d from the observation — "
                       "likely too stale; current TLEs suit recent passes.")
     rows = [[norad, f"{rms:.3f}"] for rms, norad in out.result.ranking[:10]]
+    from ..data.build import CLUSTERS
+    _names = next((c["truth"] for c in CLUSTERS.values() if out.best in c["truth"]), {})
+    _badge = format_name_tag(out.name_tag, _names)
+    if _badge:
+        md.append("- " + _badge)
     return "\n".join(md), rows
 
 
