@@ -27,10 +27,12 @@ CLUSTERS: dict[str, dict] = {
         "truth": {63217: "TEVEL2-1", 63219: "TEVEL2-2", 63218: "TEVEL2-3", 63213: "TEVEL2-4",
                   63214: "TEVEL2-5", 63215: "TEVEL2-6", 63238: "TEVEL2-7", 63239: "TEVEL2-8",
                   63237: "TEVEL2-9"},
-        # Per-unit AX.25 source callsigns, verified from decoded frames (Task 3 Step 1).
-        "callsigns": {"TVL2-1": 63217, "TVL2-2": 63219, "TVL2-3": 63218, "TVL2-4": 63213,
-                      "TVL2-5": 63214, "TVL2-6": 63215, "TVL2-7": 63238, "TVL2-8": 63239,
-                      "TVL2-9": 63237},
+        # Per-unit AX.25 source callsigns, verified from decoded frames (Task 3). Unit 1 (63217)
+        # actually transmits "TLV2-1" (note the letter order vs the others); "TVL2-1" kept as a
+        # harmless alias. The other units transmit "TVL2-<n>".
+        "callsigns": {"TLV2-1": 63217, "TVL2-1": 63217, "TVL2-2": 63219, "TVL2-3": 63218,
+                      "TVL2-4": 63213, "TVL2-5": 63214, "TVL2-6": 63215, "TVL2-7": 63238,
+                      "TVL2-8": 63239, "TVL2-9": 63237},
     },
 }
 
