@@ -67,7 +67,7 @@ class ForwardID:
         if self.name_tag is not None:
             from ..data.build import CLUSTERS
             names = next((c["truth"] for c in CLUSTERS.values() if self.best in c["truth"]), {})
-            badge = format_name_tag(self.name_tag, names)
+            badge = format_name_tag(self.name_tag, names, predicted=self.best)
             if badge:
                 lines.append("  " + badge)
         return "\n".join(lines)

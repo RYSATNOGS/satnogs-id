@@ -33,7 +33,7 @@ def format_result(obs_id: int, intdes: str | None, out: ForwardID) -> tuple[str,
     rows = [[norad, f"{rms:.3f}"] for rms, norad in out.result.ranking[:10]]
     from ..data.build import CLUSTERS
     _names = next((c["truth"] for c in CLUSTERS.values() if out.best in c["truth"]), {})
-    _badge = format_name_tag(out.name_tag, _names)
+    _badge = format_name_tag(out.name_tag, _names, predicted=out.best)
     if _badge:
         md.append("- " + _badge)
     return "\n".join(md), rows

@@ -70,8 +70,9 @@ def resolve_messages(frames: list[dict], callsign_map: dict[str, int]) -> list[t
     return out
 
 
-def format_name_tag(nt: "NameTag | None", names: dict[int, str]) -> str:
-    """One-line badge for a NameTag. `names` maps NORAD -> display name. '' when there's no tag."""
+def format_name_tag(nt: "NameTag | None", names: dict[int, str], predicted: int | None = None) -> str:
+    """One-line badge for a NameTag. `names` maps NORAD -> display name; `predicted` is the Doppler
+    NORAD, used to name it when the tag disagrees. '' when there's no tag."""
     if nt is None:
         return ""
     if nt.tier == "NONE":
@@ -79,6 +80,8 @@ def format_name_tag(nt: "NameTag | None", names: dict[int, str]) -> str:
     assert nt.norad is not None  # non-NONE tiers always carry a resolved NORAD
     label = names.get(nt.norad, str(nt.norad))
     if nt.tier == "DISAGREES":
-        return f"Name tag:  {label}  ·  ⚠ disagrees  — {nt.reason}"
+        doppler = names.get(predicted, str(predicted)) if predicted is not None else "the Doppler ID"
+        return (f"Name tag:  {label}  ·  ⚠ disagrees  — "
+                f"Doppler says {doppler} (possibly a co-audible neighbour)")
     mark = "  ✓ agrees" if nt.agrees else ""
     return f"Name tag:  {label}  ·  {nt.tier}{mark}  — {nt.reason}"
