@@ -109,7 +109,10 @@ def identify_observation(obs_id: int, *, intdes: str | None = None, catalog: str
         cmap = next((c["callsigns"] for c in CLUSTERS.values()
                      if "callsigns" in c and result.predicted in c["truth"]), None)
         if cmap:
-            name_tag = assess(resolve_messages(client.telemetry(obs_id), cmap), result.predicted)
+            try:
+                name_tag = assess(resolve_messages(client.telemetry(obs_id), cmap), result.predicted)
+            except Exception:
+                name_tag = None  # supplemental: a telemetry hiccup must not break the Doppler answer
     return ForwardID(obs_id, n, result, ambiguous_kHz, gap, name_tag=name_tag)
 
 

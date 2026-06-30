@@ -80,5 +80,5 @@ def format_name_tag(nt: "NameTag | None", names: dict[int, str]) -> str:
     label = names.get(nt.norad, str(nt.norad))
     if nt.tier == "DISAGREES":
         return f"Name tag:  {label}  ·  ⚠ disagrees  — {nt.reason}"
-    mark = "✓ agrees" if nt.agrees else ""
-    return f"Name tag:  {label}  ·  {nt.tier}  {mark}  — {nt.reason}"
+    mark = "  ✓ agrees" if nt.agrees else ""
+    return f"Name tag:  {label}  ·  {nt.tier}{mark}  — {nt.reason}"
