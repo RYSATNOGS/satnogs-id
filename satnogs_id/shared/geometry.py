@@ -65,6 +65,17 @@ def range_rate_km_s(
     return np.sum(r * v, axis=0) / np.linalg.norm(r, axis=0)
 
 
+def range_km(
+    tle1: str, tle2: str, station: Station, times: list[datetime]
+) -> np.ndarray:
+    """Topocentric range (km) of a satellite from a ground station over ``times``."""
+    sat = EarthSatellite(tle1, tle2, "sat", _TS)
+    ground = wgs84.latlon(station.lat, station.lon, elevation_m=station.alt_m)
+    r = (sat - ground).at(_TS.from_datetimes(times)).position.km
+    assert isinstance(r, np.ndarray)
+    return np.linalg.norm(r, axis=0)
+
+
 def doppler_offset_hz(f0_hz: float, range_rate: np.ndarray) -> np.ndarray:
     """Predicted Doppler offset (Hz) for a transmit frequency f0 and range rate (km/s)."""
     return -f0_hz * range_rate / C_KM_S

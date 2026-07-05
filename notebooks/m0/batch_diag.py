@@ -7,60 +7,48 @@ beacons). Prominence = (peak - median)/std of that profile. The hypothesis with 
 sharper, more prominent peak reveals the signal's shape. No conclusion is asserted
 here -- the per-obs table is what we read."""
 
-import h5py, json, numpy as np, glob
+import glob
 from datetime import timedelta
 
+import numpy as np
+
 from satnogs_id.shared import geometry
-from satnogs_id.shared.waterfall import load_waterfall
+from satnogs_id.shared.waterfall import axes, load_waterfall, observation_id, window_max
 
 
 def topmean(x, frac=0.25):
+    """Mean of the top ``frac`` fraction of ``x`` (robust to intermittent beacons)."""
     k = max(1, int(len(x) * frac))
     return float(np.mean(np.sort(x)[-k:]))
 
 
-def observation_id(path):
-    """Read the SatNOGS observation id from an artifact's metadata attribute (typed)."""
-    with h5py.File(path, "r") as f:
-        meta = f.attrs["metadata"]
-    assert isinstance(meta, (str, bytes, bytearray))
-    return json.loads(meta)["observation_id"]
+def _prominence(p):
+    """Peak prominence of a profile: (max - median) / std."""
+    return (p.max() - np.median(p)) / (np.std(p) + 1e-9)
 
 
 def analyze(path):
+    """Vertical-line vs Doppler-curve matched-filter prominences for one pass."""
     wf = load_waterfall(path)
-    f0 = wf.f0_hz
-    freqax = wf.freqax_hz
-    relt = wf.relative_time_s
-    dB = wf.db
-    T, F = dB.shape
+    f0, freqax, relt, db, n_time, n_freq = axes(wf)
     times = [wf.start + timedelta(seconds=float(r)) for r in relt]
-    rr = geometry.range_rate_km_s(wf.tle[1], wf.tle[2], wf.station, times)
-    pred = geometry.doppler_offset_hz(f0, rr)
+    pred = geometry.doppler_offset_hz(
+        f0, geometry.range_rate_km_s(wf.tle[1], wf.tle[2], wf.station, times)
+    )
     grid = np.arange(-12000, 12000, 50.0)
 
     def profile(curve):
         out = np.empty(len(grid))
         for i, df in enumerate(grid):
-            idx = np.clip(np.searchsorted(freqax, curve + df), 0, F - 1)
-            acc = dB[np.arange(T), idx]
-            for w in (1, 2, 3):
-                acc = np.maximum(
-                    acc,
-                    np.maximum(
-                        dB[np.arange(T), np.clip(idx + w, 0, F - 1)],
-                        dB[np.arange(T), np.clip(idx - w, 0, F - 1)],
-                    ),
-                )
-            out[i] = topmean(acc)
+            idx = np.clip(np.searchsorted(freqax, curve + df), 0, n_freq - 1)
+            out[i] = topmean(window_max(db, idx, 3))
         return out
 
-    vp, dp = profile(np.zeros(T)), profile(pred)
-    prom = lambda p: (p.max() - np.median(p)) / (np.std(p) + 1e-9)
+    vp, dp = profile(np.zeros(n_time)), profile(pred)
     return (
         observation_id(path),
-        prom(vp),
-        prom(dp),
+        _prominence(vp),
+        _prominence(dp),
         grid[int(np.argmax(dp))],
         wf.tle[0].strip(),
     )
@@ -70,8 +58,8 @@ print(
     f"{'obs':>9} {'object':>11} {'vert_prom':>9} {'dopp_prom':>9} {'dopp_off':>8}  reading"
 )
 rows = []
-for path in sorted(glob.glob("/data/batch/*.h5")):
-    oid, vprom, dprom, doff, obj = analyze(path)
+for h5file in sorted(glob.glob("/data/batch/*.h5")):
+    oid, vprom, dprom, doff, obj = analyze(h5file)
     reading = (
         "UNCORRECTED (curve)"
         if dprom > vprom * 1.3

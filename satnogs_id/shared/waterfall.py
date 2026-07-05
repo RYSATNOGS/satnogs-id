@@ -57,6 +57,38 @@ def _array(group: h5py.Group, key: str) -> np.ndarray:
     return ds[:]
 
 
+def observation_id(h5path: str | Path) -> int:
+    """Read the SatNOGS observation id from an artifact's `metadata` attribute."""
+    with h5py.File(h5path, "r") as f:
+        return int(json.loads(_str_attr(f, "metadata"))["observation_id"])
+
+
+def axes(
+    wf: Waterfall,
+) -> tuple[float, np.ndarray, np.ndarray, np.ndarray, int, int]:
+    """Unpack the fields the analysis notebooks all start from: carrier frequency, the
+    frequency/time axes, the dB matrix, and its (n_time, n_freq) shape."""
+    n_time, n_freq = wf.db.shape
+    return wf.f0_hz, wf.freqax_hz, wf.relative_time_s, wf.db, n_time, n_freq
+
+
+def window_max(db: np.ndarray, idx: np.ndarray, win: int) -> np.ndarray:
+    """Matched-filter kernel: for each time row, the max dB power within +/-``win`` bins of
+    column ``idx`` (the bin nearest a candidate Doppler curve at some trial carrier offset)."""
+    n_time, n_freq = db.shape
+    rows = np.arange(n_time)
+    acc = db[rows, idx]
+    for w in range(1, win + 1):
+        acc = np.maximum(
+            acc,
+            np.maximum(
+                db[rows, np.clip(idx + w, 0, n_freq - 1)],
+                db[rows, np.clip(idx - w, 0, n_freq - 1)],
+            ),
+        )
+    return acc
+
+
 def load_waterfall(h5path: str | Path) -> Waterfall:
     """Parse a SatNOGS `.h5` artifact into a Waterfall."""
     with h5py.File(h5path, "r") as f:

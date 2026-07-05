@@ -94,15 +94,19 @@ def _strong_passes(observations: list[dict], min_alt: float) -> list[dict]:
     )
 
 
-def _write_soup_catalog(
-    path: Path, soup: list[int], cand_obs: dict[int, list[dict]], tdate: str
-) -> None:
-    """Write an epoch-matched candidate catalog (the whole launch's soup) for one pass date."""
+def write_soup_catalog(
+    path: str | Path, soup: list[int], cand_obs: dict[int, list[dict]], tdate: str
+) -> int:
+    """Write an epoch-matched candidate catalog (the whole launch's soup) for one pass date.
+    Returns the number of candidates that had a usable per-obs TLE near ``tdate``."""
+    matched = 0
     with open(path, "w", encoding="utf-8") as g:
         for n in soup:
             t = nearest_tle(cand_obs[n], tdate)
             if t:
                 g.write(f"{t[0]}\n{t[1]}\n{t[2]}\n")
+                matched += 1
+    return matched
 
 
 def _try_pass(run: _HarvestRun, o: dict, norad: int) -> PassRecord | None:
@@ -114,7 +118,7 @@ def _try_pass(run: _HarvestRun, o: dict, norad: int) -> PassRecord | None:
     h5rel = f"h5/obs{oid}_n{norad}_st{station}.h5"
     run.client.download(url, run.ds.root / h5rel)
     catrel = f"catalogs/soup_{oid}.tle"
-    _write_soup_catalog(run.ds.root / catrel, run.soup, run.cand_obs, tdate)
+    write_soup_catalog(run.ds.root / catrel, run.soup, run.cand_obs, tdate)
     return PassRecord(oid, norad, int(station), h5rel, catrel, tdate)
 
 

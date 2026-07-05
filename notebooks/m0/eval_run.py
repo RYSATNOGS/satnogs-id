@@ -2,24 +2,23 @@
 and report honest metrics -- top-1 identification accuracy with a Wilson 95% CI, the rank
 distribution of the true object, the margin distribution, and a per-object breakdown."""
 
-import numpy as np, os, glob, subprocess, math
+import glob
+import math
+import os
 
+import numpy as np
+
+from satnogs_id.data.build import CLUSTERS
 from satnogs_id.id.dat import build_dat, site_line
+from satnogs_id.id.identify import run_rffit_identify
 from satnogs_id.shared.waterfall import load_waterfall
 
-NAME = {
-    64879: "Geoscan-6",
-    64880: "Geoscan-1",
-    64890: "Geoscan-2",
-    64891: "Geoscan-5",
-    64892: "Geoscan-4",
-    64893: "Geoscan-3",
-}
+NAME = CLUSTERS["geoscan"]["truth"]
 
 
 def make_dat(h5path, siteid, datpath):
-    # Identical extraction to the shipped wrap; build_dat returns 0 (<10 usable points -> unusable),
-    # in which case we skip the site line just as this eval loop originally did.
+    """Extract the track and write rffit's .dat + site line; return the point count. build_dat
+    returns 0 when <10 usable points, in which case the caller skips the site line and the pass."""
     wf = load_waterfall(h5path)
     n = build_dat(wf, siteid, datpath)
     if n == 0:
@@ -30,6 +29,7 @@ def make_dat(h5path, siteid, datpath):
 
 
 def wilson(k, n, z=1.96):
+    """Wilson score confidence interval (lo, hi) for k successes in n trials."""
     if n == 0:
         return (0.0, 0.0)
     p = k / n
@@ -40,42 +40,27 @@ def wilson(k, n, z=1.96):
 
 
 rows_out, by_obj, ranks, margins = [], {}, [], []
-for k, h5path in enumerate(sorted(glob.glob("/data/eval/*.h5"))):
-    base = os.path.basename(h5path)
+for idx, h5file in enumerate(sorted(glob.glob("/data/eval/*.h5"))):
+    base = os.path.basename(h5file)
     oid = base.split("_")[0][3:]
     truenorad = int(base.split("_n")[1].split("_")[0])
-    siteid = 9001 + (k % 900)
+    site = 9001 + (idx % 900)
     datp = f"/data/eval/{oid}.dat"
     catp = f"/data/eval/soup_{oid}.tle"
     if not os.path.exists(catp):
         continue
-    npts = make_dat(h5path, siteid, datp)
+    npts = make_dat(h5file, site, datp)
     if npts < 10:
         rows_out.append((oid, truenorad, None, None, npts))
         continue
-    out = subprocess.run(
-        ["/opt/strf/rffit", "-d", datp, "-c", catp, "-s", str(siteid), "-I"],
-        capture_output=True,
-        text=True,
-        env={**os.environ, "ST_DATADIR": "/opt/strf"},
-    )
-    cand = []
-    for l in out.stdout.splitlines():
-        if "kHz" in l and ":" in l and l.split(":")[0].strip().isdigit():
-            try:
-                cand.append(
-                    (float(l.split(":")[1].split("kHz")[0]), int(l.split(":")[0]))
-                )
-            except Exception:
-                pass
-    cand.sort()
-    if not cand:
+    res = run_rffit_identify(datp, catp, site)
+    if not res.ranking:
         rows_out.append((oid, truenorad, None, None, npts))
         continue
-    pred = cand[0][1]
-    rank = next((i + 1 for i, (r, n) in enumerate(cand) if n == truenorad), None)
-    trms = next((r for r, n in cand if n == truenorad), None)
-    bconf = next((r for r, n in cand if n != truenorad), None)
+    pred = res.predicted
+    rank = res.rank_of(truenorad)
+    trms = res.rms_of(truenorad)
+    bconf = next((rms for rms, n in res.ranking if n != truenorad), None)
     correct = pred == truenorad
     rows_out.append((oid, truenorad, pred, rank, npts))
     by_obj.setdefault(truenorad, [0, 0])
@@ -86,26 +71,29 @@ for k, h5path in enumerate(sorted(glob.glob("/data/eval/*.h5"))):
     if correct and trms is not None and bconf is not None:
         margins.append(bconf - trms)
 
-scored = [r for r in rows_out if r[2] is not None]
-ncorrect = sum(1 for o, t, p, rk, n in scored if p == t)
+scored = [row for row in rows_out if row[2] is not None]
+ncorrect = sum(1 for row in scored if row[2] == row[1])
 N = len(scored)
 lo, hi = wilson(ncorrect, N)
 print(
-    f"=== Scaled eval: Geoscan cluster, {len(rows_out)} passes ({N} scored, {len(rows_out) - N} unusable) ==="
+    f"=== Scaled eval: Geoscan cluster, {len(rows_out)} passes "
+    f"({N} scored, {len(rows_out) - N} unusable) ==="
 )
 print(
-    f"TOP-1 ACCURACY: {ncorrect}/{N} = {100 * ncorrect / max(N, 1):.1f}%  (95% Wilson CI {100 * lo:.0f}-{100 * hi:.0f}%)"
+    f"TOP-1 ACCURACY: {ncorrect}/{N} = {100 * ncorrect / max(N, 1):.1f}%  "
+    f"(95% Wilson CI {100 * lo:.0f}-{100 * hi:.0f}%)"
 )
 print(
-    f"true-object rank distribution: "
+    "true-object rank distribution: "
     + ", ".join(f"rank{r}:{ranks.count(r)}" for r in sorted(set(ranks)))
 )
 if margins:
     a = np.array(margins)
     print(
-        f"margin over best confuser (correct cases): median {np.median(a):.2f} kHz, min {a.min():.2f}, max {a.max():.2f}"
+        f"margin over best confuser (correct cases): median {np.median(a):.2f} kHz, "
+        f"min {a.min():.2f}, max {a.max():.2f}"
     )
 print("per-object top-1:")
-for n in sorted(by_obj):
-    c, t = by_obj[n]
-    print(f"  {NAME.get(n, n)} ({n}): {c}/{t}")
+for norad in sorted(by_obj):
+    n_ok, n_tot = by_obj[norad]
+    print(f"  {NAME.get(norad, norad)} ({norad}): {n_ok}/{n_tot}")
