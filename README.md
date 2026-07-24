@@ -9,6 +9,21 @@ takes a SatNOGS observation and ranks which cataloged object best matches its Do
 so by **wrapping the authoritative tool for the job, Cees Bassa's [strf](https://github.com/cbassa/strf)
 (`rffit`)**, rather than reinventing orbit determination.
 
+## The SatNOGS fleet
+
+Four small, honest tools around a SatNOGS observation — three single-purpose engines, plus one app
+that composes them for a human reviewer:
+
+| repo | the question it answers |
+|---|---|
+| [satnogs-signal](https://github.com/RYSATNOGS/satnogs-signal) | *is there a signal in this waterfall?* — signal-vs-noise triage |
+| [satnogs-decoder](https://github.com/RYSATNOGS/satnogs-decoder) | *what does the frame say?* — telemetry decoding |
+| **satnogs-id** (this repo) | ***which catalog object is it?*** — Doppler identification |
+| [satnogs-dashboard](https://github.com/RYSATNOGS/satnogs-dashboard) | *review it all on one observation* — the workbench that runs the three engines |
+
+The three engines are standalone and read-only against SatNOGS; the dashboard is the surface that
+composes them. This repo is the **identify** stage — a Doppler track in, a ranked catalog match out.
+
 ## How it works
 
 The SatNOGS waterfall is **Doppler-corrected** (verified from the `gr-satnogs` flowgraph), so a real
