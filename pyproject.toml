@@ -10,8 +10,8 @@ dependencies = [
     "skyfield>=1.55",
     "h5py>=3.16.0",
     "datasets>=5.0.1",
-    "huggingface_hub>=1.27.0",
-    "gradio>=6.24.0",
+    "huggingface_hub>=1.29.0",
+    "gradio>=6.26.0",
 ]
 
 [project.optional-dependencies]
